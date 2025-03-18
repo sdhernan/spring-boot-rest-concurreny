@@ -64,28 +64,34 @@ La entidad `DistributedLock` almacena la información de los bloqueos:
 ```java
 @Entity
 @Table(name = "TB_NSAR_BLOQUEO_DISTRIBUIDO", indexes = {
-    @Index(name = "IDX_BLOQUEO_LLAVE", columnList = "LLAVE_BLOQUEO"),
-    @Index(name = "IDX_BLOQUEO_EXPIRACION", columnList = "FECHA_EXPIRACION")
-})
+    @Index(name = "IDX_LLAVE_BLOQUEO", columnList = "CH_LLAVE_BLOQUEO", unique = true),
+    @Index(name = "IDX_FECHA_EXPIRACION", columnList = "FC_EXPIRA_BLOQUEO") })
 public class DistributedLock {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID_BLOQUEO")
-    private Long id;
+    @Column(name = "ID_BLOQUEO_DISTRIBUIDO")
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "bloqueoSequence")
+    @SequenceGenerator(name = "bloqueoSequence", sequenceName = "SEQ_TB_NSAR_BLOQUEO_DISTRIBUIDO", allocationSize = 1)
+    private Long idBloqueoDistribuido;
     
-    @Column(name = "LLAVE_BLOQUEO", nullable = false, length = 255)
+    @Column(name = "CH_LLAVE_BLOQUEO", length = 255, nullable = false, unique = true)
     private String llaveBloqueo;
     
-    @Column(name = "PROCESO_BLOQUEO", nullable = false, length = 36)
+    @Column(name = "CH_PROCESO_BLOQUEO", length = 100, nullable = false)
     private String procesoBloqueo;
     
-    @Column(name = "FECHA_CREACION", nullable = false)
     @Temporal(TemporalType.TIMESTAMP)
-    private Date fechaCreacion;
+    @Column(name = "FC_INICIO_BLOQUEO", nullable = false)
+    private Date fechaInicioBloqueo;
     
-    @Column(name = "FECHA_EXPIRACION", nullable = false)
     @Temporal(TemporalType.TIMESTAMP)
-    private Date fechaExpiracion;
+    @Column(name = "FC_EXPIRA_BLOQUEO", nullable = false)
+    private Date fechaExpiraBloqueo;
+    
+    @Column(name = "CH_USUARIO_MODIFICADOR", length = 50)
+    private String usuarioModificador;
+    
+    @Column(name = "CH_NOMBRE_SERVICIO", length = 100)
+    private String nombreServicio;
     
     // Getters y setters omitidos por brevedad
 }
@@ -134,8 +140,10 @@ public boolean acquireLock(String resourceId, String processId) {
         DistributedLock lock = new DistributedLock();
         lock.setLlaveBloqueo(resourceId);
         lock.setProcesoBloqueo(processId);
-        lock.setFechaCreacion(now);
-        lock.setFechaExpiracion(expiryTime);
+        lock.setFechaInicioBloqueo(now);
+        lock.setFechaExpiraBloqueo(expiryTime);
+        lock.setUsuarioModificador(defaultUser);
+        lock.setNombreServicio(serviceName);
         
         lockRepository.save(lock);
         
@@ -386,8 +394,14 @@ lock.retry.delay.ms=500
 lock.cleanup.enabled=true
 lock.cleanup.interval.seconds=300
 
-# Prefijo para identificar peticiones de certificación
-application.service.name=CERT_AFORE_
+# Nombre del servicio (usado para identificar qué servicio/aplicación creó el bloqueo)
+application.service.name=CERT_AFORE
+
+# Usuario por defecto para operaciones de sistema
+application.user.default=SYSTEM
+
+# Configuración específica para transacciones
+spring.jpa.properties.hibernate.isolation=SERIALIZABLE
 ```
 
 ## Escenarios de Uso
