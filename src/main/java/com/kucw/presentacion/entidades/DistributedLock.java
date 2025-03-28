@@ -13,8 +13,14 @@ import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
+/**
+ * Entidad que representa un bloqueo distribuido para servicios.
+ * Esta tabla almacena información sobre los bloqueos adquiridos por diferentes servicios,
+ * incluyendo datos sobre el usuario que realizó la operación, el servicio que adquirió el bloqueo,
+ * y el registro de peticiones simultáneas para análisis y auditoría.
+ */
 @Entity
-@Table(name = "TB_NSAR_BLOQUEO_DISTRIBUIDO", indexes = {
+@Table(name = "TB_NSAR_BLOQUEO_DISTRIBUIDO_SERVICIOS", indexes = {
 		@Index(name = "IDX_LLAVE_BLOQUEO", columnList = "CH_LLAVE_BLOQUEO", unique = true),
 		@Index(name = "IDX_FECHA_EXPIRACION", columnList = "FC_EXPIRA_BLOQUEO") })
 public class DistributedLock {
@@ -22,7 +28,7 @@ public class DistributedLock {
 	@Id
 	@Column(name = "ID_BLOQUEO_DISTRIBUIDO")
 	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "bloqueoSequence")
-	@SequenceGenerator(name = "bloqueoSequence", sequenceName = "SEQ_TB_NSAR_BLOQUEO_DISTRIBUIDO", allocationSize = 1)
+	@SequenceGenerator(name = "bloqueoSequence", sequenceName = "SEQ_TB_NSAR_BLOQUEO_DISTRIBUIDO_SERVICIOS", allocationSize = 1)
 	private Long idBloqueoDistribuido;
 
 	@Column(name = "CH_LLAVE_BLOQUEO", length = 255, nullable = false, unique = true)
