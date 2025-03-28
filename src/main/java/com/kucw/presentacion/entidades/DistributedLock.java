@@ -39,11 +39,23 @@ public class DistributedLock {
 	@Column(name = "FC_EXPIRA_BLOQUEO", nullable = false)
 	private Date fechaExpiraBloqueo;
 
-	@Column(name = "CH_USUARIO_MODIFICADOR", length = 50)
+	@Column(name = "CH_USUARIO_MODIFICADOR", length = 50, nullable = false)
 	private String usuarioModificador;
 
-	@Column(name = "CH_NOMBRE_SERVICIO", length = 100)
+	@Column(name = "CH_NOMBRE_SERVICIO", length = 100, nullable = false)
 	private String nombreServicio;
+
+	@Column(name = "CH_PETICION_SIMULTANEA", length = 5, nullable = true)
+	private String peticionSimultanea = "FALSE";
+
+	@Column(name = "CH_REQUEST", length = 4000, nullable = true)
+	private String request;
+
+	/**
+	 * Fecha en que llegó otra petición simultánea
+	 */
+	@Column(name = "FC_LLEGO_OTRA_PETICION")
+	private Date fechaLlegoOtraPeticion;
 
 	public Date getFechaExpiraBloqueo() {
 		return fechaExpiraBloqueo;
@@ -100,5 +112,29 @@ public class DistributedLock {
 
 	public void setUsuarioModificador(String usuarioModificador) {
 		this.usuarioModificador = usuarioModificador;
+	}
+
+	public String getPeticionSimultanea() {
+		return peticionSimultanea;
+	}
+
+	public void setPeticionSimultanea(String peticionSimultanea) {
+		this.peticionSimultanea = peticionSimultanea;
+	}
+
+	public String getRequest() {
+		return request;
+	}
+
+	public void setRequest(String request) {
+		this.request = request;
+	}
+
+	public Date getFechaLlegoOtraPeticion() {
+		return fechaLlegoOtraPeticion;
+	}
+
+	public void setFechaLlegoOtraPeticion(Date fechaLlegoOtraPeticion) {
+		this.fechaLlegoOtraPeticion = fechaLlegoOtraPeticion;
 	}
 }

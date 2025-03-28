@@ -14,6 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.kucw.presentacion.entidades.DistributedLock;
 import com.kucw.presentacion.repositorios.DistributedLockRepository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Servicio que implementa un mecanismo de bloqueo distribuido basado en base de datos.
  * 
@@ -34,6 +37,8 @@ import com.kucw.presentacion.repositorios.DistributedLockRepository;
  */
 @Service
 public class LockManagerService {
+
+	private static final Logger logger = LoggerFactory.getLogger(LockManagerService.class);
 
 	/**
 	 * Repositorio para acceder a la entidad DistributedLock en la base de datos.
@@ -75,8 +80,7 @@ public class LockManagerService {
 	 * 
 	 * Este método implementa el siguiente algoritmo para garantizar la exclusión mutua:
 	 * 1. Limpia los bloqueos expirados para evitar deadlocks
-	 * 2. Verifica si ya existe un bloqueo válido para el recurso
-	 * 3. Si no existe, intenta crear un nuevo bloqueo con un tiempo de expiración
+	 * 2. Intenta crear un nuevo bloqueo con un tiempo de expiración
 	 * 
 	 * La operación se ejecuta con aislamiento SERIALIZABLE para garantizar
 	 * la consistencia en entornos altamente concurrentes. Esto evita condiciones
@@ -87,12 +91,15 @@ public class LockManagerService {
 	 *                   Debe ser consistente en todas las instancias de la aplicación.
 	 * @param processId  Identificador único del proceso que solicita el bloqueo.
 	 *                   Típicamente un UUID generado para cada operación.
+	 * @param requestJson Contenido JSON de la petición que se está procesando.
+	 *                   Este valor se guardará en el campo request cuando se detecte
+	 *                   una petición simultánea.
 	 * @return true si el bloqueo fue adquirido exitosamente, false si el recurso
 	 *         ya está bloqueado por otro proceso o si ocurrió un error al intentar
 	 *         adquirir el bloqueo.
 	 */
 	@Transactional(isolation = Isolation.SERIALIZABLE)
-	public boolean acquireLock(String resourceId, String processId) {
+	public boolean acquireLock(String resourceId, String processId, String requestJson) {
 		// Obtenemos la fecha y hora actual para registrar cuándo se adquiere el bloqueo
 		Date now = new Date();
 		// Calculamos la fecha y hora de expiración sumando el tiempo de timeout configurado
@@ -101,13 +108,6 @@ public class LockManagerService {
 		// Limpiamos los bloqueos expirados antes de intentar adquirir uno nuevo
 		// Esto evita acumulación de registros obsoletos y mejora el rendimiento
 		lockRepository.cleanExpiredLocks(now);
-
-		// Verificamos si ya existe un bloqueo válido (no expirado) para este recurso
-		Optional<DistributedLock> existingLock = lockRepository.findValidLock(resourceId, now);
-		if (existingLock.isPresent()) {
-			// Si existe un bloqueo válido, no podemos adquirir uno nuevo
-			return false; // Bloqueo ya existe
-		}
 
 		try {
 			// Creamos un nuevo objeto de bloqueo con los datos necesarios
@@ -118,17 +118,44 @@ public class LockManagerService {
 			lock.setFechaExpiraBloqueo(expiryTime); // Momento en que expirará el bloqueo
 			lock.setUsuarioModificador(defaultUser); // Usuario que realiza la operación
 			lock.setNombreServicio(serviceName);    // Servicio que adquiere el bloqueo
+			lock.setPeticionSimultanea("FALSE");      // Por defecto, no es una petición simultánea
+			lock.setRequest(requestJson);           // Guardamos el JSON de la petición
 
 			// Guardamos el bloqueo en la base de datos
-			// Esta operación puede fallar si otro proceso creó el bloqueo mientras tanto
+			// Esta operación fallará con DataIntegrityViolationException si otro proceso
+			// ya ha creado un bloqueo con el mismo resourceId (debido a la restricción de unicidad)
 			lockRepository.save(lock);
 			return true; // Bloqueo adquirido exitosamente
 		} catch (DataIntegrityViolationException e) {
-			// Esta excepción ocurre cuando hay un conflicto de integridad en la base de datos
-			// Típicamente porque otro proceso se adelantó y creó el bloqueo con el mismo resourceId
-			// (debido a una restricción de unicidad en la columna llaveBloqueo)
+			// Si se produce una violación de integridad, significa que ya existe un bloqueo para este recurso
+			try {
+				// Actualizamos el bloqueo existente para marcar que se detectó una petición simultánea
+				lockRepository.updateLockWithSimultaneousRequest(resourceId);
+			} catch (Exception updateEx) {
+				// Si falla la actualización, simplemente lo registramos pero continuamos con el proceso
+				logger.error("Error al actualizar el bloqueo con petición simultánea: " + updateEx.getMessage(), updateEx);
+			}
 			return false; // No se pudo adquirir el bloqueo
+		} catch (Exception e) {
+			// Capturamos cualquier otra excepción que pueda ocurrir durante el proceso
+			// Esto nos permite manejar casos no previstos sin interrumpir la ejecución
+			// En un entorno de producción, sería recomendable registrar esta excepción en logs
+			return false; // No se pudo adquirir el bloqueo debido a un error inesperado
 		}
+	}
+	
+	/**
+	 * Intenta adquirir un bloqueo distribuido para un recurso específico.
+	 * Sobrecarga del método acquireLock que no requiere el parámetro requestJson.
+	 * 
+	 * @param resourceId Identificador único del recurso que se desea bloquear.
+	 * @param processId  Identificador único del proceso que solicita el bloqueo.
+	 * @return true si el bloqueo fue adquirido exitosamente, false si el recurso
+	 *         ya está bloqueado por otro proceso o si ocurrió un error.
+	 */
+	@Transactional(isolation = Isolation.SERIALIZABLE)
+	public boolean acquireLock(String resourceId, String processId) {
+		return acquireLock(resourceId, processId, resourceId);
 	}
 
 	/**

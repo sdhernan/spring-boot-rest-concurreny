@@ -87,15 +87,48 @@ public class DistributedLock {
     @Column(name = "FC_EXPIRA_BLOQUEO", nullable = false)
     private Date fechaExpiraBloqueo;
     
-    @Column(name = "CH_USUARIO_MODIFICADOR", length = 50)
+    @Column(name = "CH_USUARIO_MODIFICADOR", length = 50, nullable = false)
     private String usuarioModificador;
     
-    @Column(name = "CH_NOMBRE_SERVICIO", length = 100)
+    @Column(name = "CH_NOMBRE_SERVICIO", length = 100, nullable = false)
     private String nombreServicio;
+    
+    @Column(name = "CH_PETICION_SIMULTANEA", length = 5, nullable = true)
+    private String peticionSimultanea = "FALSE";
+    
+    @Column(name = "CH_REQUEST", length = 4000, nullable = true)
+    private String request;
+    
+    @Column(name = "FC_LLEGO_OTRA_PETICION")
+    private Date fechaLlegoOtraPeticion;
     
     // Getters y setters omitidos por brevedad
 }
 ```
+
+## Estructura de la Tabla de Bloqueos Distribuidos
+
+A continuación se presenta la estructura detallada de la tabla de bloqueos distribuidos:
+
+| Columna                 | Tipo Dato  | Longitud | Nullable | Descripción                                           |
+|:------------------------|:-----------|:---------|:---------|:-------------------------------------------------------|
+| ID_BLOQUEO_DISTRIBUIDO  | NUMBER     | -        | No       | Identificador único del bloqueo (clave primaria)      |
+| CH_LLAVE_BLOQUEO        | VARCHAR2   | 255      | No       | Identificador único del recurso bloqueado (única)     |
+| CH_PROCESO_BLOQUEO      | VARCHAR2   | 100      | No       | Identificador del proceso que adquirió el bloqueo     |
+| FC_INICIO_BLOQUEO       | TIMESTAMP  | -        | No       | Fecha y hora en que se adquirió el bloqueo            |
+| FC_EXPIRA_BLOQUEO       | TIMESTAMP  | -        | No       | Fecha y hora en que expirará el bloqueo               |
+| CH_USUARIO_MODIFICADOR  | VARCHAR2   | 50       | No       | Usuario que realizó la operación de bloqueo           |
+| CH_NOMBRE_SERVICIO      | VARCHAR2   | 100      | No       | Nombre del servicio que adquirió el bloqueo           |
+| CH_PETICION_SIMULTANEA  | VARCHAR2   | 5        | Sí       | Indica si se detectó petición simultánea (TRUE/FALSE) |
+| CH_REQUEST              | VARCHAR2   | 4000     | Sí       | Contenido JSON de la petición que generó el bloqueo   |
+| FC_LLEGO_OTRA_PETICION  | TIMESTAMP  | -        | Sí       | Fecha y hora en que se detectó petición simultánea    |
+
+**Notas importantes:**
+
+- Los campos `CH_PETICION_SIMULTANEA`, `CH_REQUEST` y `FC_LLEGO_OTRA_PETICION` pueden ser NULL.
+- Los campos `CH_USUARIO_MODIFICADOR` y `CH_NOMBRE_SERVICIO` son obligatorios (no pueden ser NULL).
+- El campo `FC_LLEGO_OTRA_PETICION` solo se establece cuando se detecta una petición simultánea.
+- El campo `CH_PETICION_SIMULTANEA` tiene un valor por defecto de "FALSE" y cambia a "TRUE" cuando se detecta una petición simultánea.
 
 ### Servicios de Gestión de Concurrencia
 

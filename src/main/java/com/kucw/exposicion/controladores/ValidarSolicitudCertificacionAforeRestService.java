@@ -153,8 +153,10 @@ public class ValidarSolicitudCertificacionAforeRestService {
 				peticionKey = StringUtils.join(PREFIJO_CERTIFICACION, hashContent);
 				processId = UUID.randomUUID().toString();
 
-				// Intentar adquirir el bloqueo
-				lockAcquired = lockManagerService.acquireLock(peticionKey, processId);
+				// Intentar adquirir el bloqueo, pasando el contenido JSON de la petición
+				// Aunque no se usará para actualizar el campo request, se mantiene para guardar
+				// el JSON en nuevos registros
+				lockAcquired = lockManagerService.acquireLock(peticionKey, processId, jsonContent);
 
 				if (!lockAcquired) {
 

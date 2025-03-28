@@ -39,4 +39,12 @@ public interface DistributedLockRepository extends JpaRepository<DistributedLock
 	 */
 	@Query("SELECT l FROM DistributedLock l WHERE l.llaveBloqueo = :key AND l.fechaExpiraBloqueo > :now")
 	Optional<DistributedLock> findValidLock(@Param("key") String key, @Param("now") Date now);
+
+	/**
+	 * Actualiza un bloqueo existente para marcar que se detectó una petición simultánea
+	 * y registrar la fecha en que llegó la otra petición
+	 */
+	@Modifying
+	@Query("UPDATE DistributedLock l SET l.peticionSimultanea = 'TRUE', l.fechaLlegoOtraPeticion = CURRENT_TIMESTAMP WHERE l.llaveBloqueo = :llaveBloqueo")
+	void updateLockWithSimultaneousRequest(@Param("llaveBloqueo") String llaveBloqueo);
 }
